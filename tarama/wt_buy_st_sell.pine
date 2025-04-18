@@ -1,0 +1,614 @@
+//@version=6
+// author: @kmlbysl12
+// edited: @therkut
+// Strategy Document: https://drive.google.com/file/d/11hIEjxSnyfGx1IyKce1SzKlHS1uUpzTq/view
+// source: https://x.com/kmlbysl12/status/1900604765974962191
+// XKTUM (BIST Katılım Tüm) hisseleri versiyonu.
+indicator('WaveTrend Buy with SuperTrend Sell', shorttitle = 'WT_BUY_ST_SELL', overlay = false)
+
+// Input parameters for WaveTrend
+n1 = input.int(10, title = 'Channel Length')
+n2 = input.int(21, title = 'Average Length')
+obLevel1 = input.int(60, title = 'Over Bought Level 1')
+obLevel2 = input.int(53, title = 'Over Bought Level 2')
+osLevel1 = input.int(-60, title = 'Over Sold Level 1')
+osLevel2 = input.int(-53, title = 'Over Sold Level 2')
+
+// Input parameters for SuperTrend
+Periods = input.int(title = 'ATR Period', defval = 10, group = 'SuperTrend')
+st_src = input.source(hl2, title = 'Source', group = 'SuperTrend')
+Multiplier = input.float(title = 'ATR Multiplier', step = 0.1, defval = 3.0, group = 'SuperTrend')
+changeATR = input.bool(false, title = 'Change ATR Calculation Method?', group = 'SuperTrend')
+
+// WaveTrend calculation
+ap = hlc3
+esa = ta.ema(ap, n1)
+d = ta.ema(math.abs(ap - esa), n1)
+ci = (ap - esa) / (0.015 * d)
+tci = ta.ema(ci, n2)
+
+wt1 = tci
+wt2 = ta.sma(wt1, 4)
+
+// SuperTrend calculation
+atr = changeATR ? ta.atr(Periods) : ta.sma(ta.tr, Periods)
+up = st_src - Multiplier * atr
+dn = st_src + Multiplier * atr
+up1 = nz(up[1], up)
+dn1 = nz(dn[1], dn)
+up := close[1] > up1 ? math.max(up, up1) : up
+dn := close[1] < dn1 ? math.min(dn, dn1) : dn
+
+var float trend = na
+trend := nz(trend[1], 1)
+trend := trend == -1 and close > dn1 ? 1 : trend == 1 and close < up1 ? -1 : trend
+
+// Plot horizontal lines for overbought/oversold levels
+hline(0, color = color.gray, linestyle = hline.style_solid)
+hline(obLevel1, color = color.red, linestyle = hline.style_solid)
+hline(osLevel1, color = color.green, linestyle = hline.style_solid)
+hline(obLevel2, color = color.red, linestyle = hline.style_solid)
+hline(osLevel2, color = color.green, linestyle = hline.style_solid)
+
+// Plot WaveTrend lines
+plot(wt1, color = color.green)
+plot(wt2, color = color.red)
+plot(wt1 - wt2, color = color.blue, style = plot.style_area)
+
+// Detect WaveTrend buy signals
+crossUp = ta.crossover(wt1, wt2)
+crossBelowOS2 = crossUp and wt1 < osLevel2
+
+// Detect SuperTrend sell signals
+sellSignal = trend == -1 and trend[1] == 1
+
+// Plot crosses on the chart (only for WaveTrend buy signals)
+plot(crossUp ? wt2 : na, color = color.black, style = plot.style_cross, linewidth = 3)
+plot(crossUp ? wt2 : na, color = wt2 - wt1 > 0 ? color.red : color.lime, style = plot.style_cross, linewidth = 2)
+
+// Color bars based on crossUp condition
+barcolor(crossUp ? wt2 - wt1 > 0 ? color.aqua : color.yellow : na)
+
+// Add labels on the chart for buy/sell signals
+if crossBelowOS2
+    label.new(bar_index, wt1, 'AL', color = color.green, textcolor = color.white, style = label.style_label_down, size = size.small)
+
+if sellSignal
+    label.new(bar_index, wt1, 'SAT', color = color.red, textcolor = color.white, style = label.style_label_up, size = size.small)
+
+// Input parameters for screener
+grupSec = input.string(defval = '1', options = ['1', '2', '3', '4', '5', 'ÖZEL LİSTE'], group = 'Taraması yapılacak gruplardan birini seçin', title = 'Grup seç')
+line_width = input.int(2, title = 'Çizgi Kalınlığı', minval = 1, maxval = 5, group = 'Ayarlar')
+per = input.timeframe(defval = '', title = 'PERİYOT', group = 'Tarama yapmak istediğiniz periyotu seçin')
+
+// Custom List (ÖZEL LİSTE)
+s01 = input.symbol(title = '1', defval = 'BIST:ACSEL', group = '¦============= ÖZEL LİSTE =============¦')
+s02 = input.symbol(title = '2', defval = 'BIST:ADESE')
+s03 = input.symbol(title = '3', defval = 'BIST:AHSGY')
+s04 = input.symbol(title = '4', defval = 'BIST:AKCNS')
+s05 = input.symbol(title = '5', defval = 'BIST:AKSA')
+s06 = input.symbol(title = '6', defval = 'BIST:AKSEN')
+s07 = input.symbol(title = '7', defval = 'BIST:AKYHO')
+s08 = input.symbol(title = '8', defval = 'BIST:ALBRK')
+s09 = input.symbol(title = '9', defval = 'BIST:ALCTL')
+s10 = input.symbol(title = '10', defval = 'BIST:ALKA')
+s11 = input.symbol(title = '11', defval = 'BIST:ALKIM')
+s12 = input.symbol(title = '12', defval = 'BIST:ALKLC')
+s13 = input.symbol(title = '13', defval = 'BIST:ALTNY')
+s14 = input.symbol(title = '14', defval = 'BIST:ALVES')
+s15 = input.symbol(title = '15', defval = 'BIST:ANGEN')
+s16 = input.symbol(title = '16', defval = 'BIST:ARASE')
+s17 = input.symbol(title = '17', defval = 'BIST:ARDYZ')
+s18 = input.symbol(title = '18', defval = 'BIST:ARENA')
+s19 = input.symbol(title = '19', defval = 'BIST:ASELS')
+s20 = input.symbol(title = '20', defval = 'BIST:ASUZU')
+s21 = input.symbol(title = '21', defval = 'BIST:ATAKP')
+s22 = input.symbol(title = '22', defval = 'BIST:ATATP')
+s23 = input.symbol(title = '23', defval = 'BIST:ATEKS')
+s24 = input.symbol(title = '24', defval = 'BIST:AVGYO')
+s25 = input.symbol(title = '25', defval = 'BIST:AVPGY')
+s26 = input.symbol(title = '26', defval = 'BIST:BAHKM')
+s27 = input.symbol(title = '27', defval = 'BIST:BAKAB')
+s28 = input.symbol(title = '28', defval = 'BIST:BANVT')
+s29 = input.symbol(title = '29', defval = 'BIST:BASGZ')
+s30 = input.symbol(title = '30', defval = 'BIST:BAYRK')
+s31 = input.symbol(title = '31', defval = 'BIST:BERA')
+s32 = input.symbol(title = '32', defval = 'BIST:BEYAZ')
+s33 = input.symbol(title = '33', defval = 'BIST:BIENY')
+s34 = input.symbol(title = '34', defval = 'BIST:BIMAS')
+s35 = input.symbol(title = '35', defval = 'BIST:BINBN')
+s36 = input.symbol(title = '36', defval = 'BIST:BINHO')
+s37 = input.symbol(title = '37', defval = 'BIST:BMSTL')
+s38 = input.symbol(title = '38', defval = 'BIST:BORLS')
+s39 = input.symbol(title = '39', defval = 'BIST:BORSK')
+s40 = input.symbol(title = '40', defval = 'BIST:BOSSA')
+
+// Group 1
+c1 = input.symbol(title = '1', defval = 'BIST:BRKSN', group = '1. Grup Hisseleri')
+c2 = input.symbol(title = '2', defval = 'BIST:BRLSM')
+c3 = input.symbol(title = '3', defval = 'BIST:BSOKE')
+c4 = input.symbol(title = '4', defval = 'BIST:BUCIM')
+c5 = input.symbol(title = '5', defval = 'BIST:BURCE')
+c6 = input.symbol(title = '6', defval = 'BIST:BURVA')
+c7 = input.symbol(title = '7', defval = 'BIST:CANTE')
+c8 = input.symbol(title = '8', defval = 'BIST:CEMAS')
+c9 = input.symbol(title = '9', defval = 'BIST:CEMTS')
+c10 = input.symbol(title = '10', defval = 'BIST:CGCAM')
+c11 = input.symbol(title = '11', defval = 'BIST:CMBTN')
+c12 = input.symbol(title = '12', defval = 'BIST:COSMO')
+c13 = input.symbol(title = '13', defval = 'BIST:CUSAN')
+c14 = input.symbol(title = '14', defval = 'BIST:CWENE')
+c15 = input.symbol(title = '15', defval = 'BIST:DAGHL')
+c16 = input.symbol(title = '16', defval = 'BIST:DARDL')
+c17 = input.symbol(title = '17', defval = 'BIST:DCTTR')
+c18 = input.symbol(title = '18', defval = 'BIST:DESPC')
+c19 = input.symbol(title = '19', defval = 'BIST:DGATE')
+c20 = input.symbol(title = '20', defval = 'BIST:DGNMO')
+c21 = input.symbol(title = '21', defval = 'BIST:DMRGD')
+c22 = input.symbol(title = '22', defval = 'BIST:DOAS')
+c23 = input.symbol(title = '23', defval = 'BIST:DOBUR')
+c24 = input.symbol(title = '24', defval = 'BIST:DOFER')
+c25 = input.symbol(title = '25', defval = 'BIST:DURKN')
+c26 = input.symbol(title = '26', defval = 'BIST:DYOBY')
+c27 = input.symbol(title = '27', defval = 'BIST:EBEBK')
+c28 = input.symbol(title = '28', defval = 'BIST:EDATA')
+c29 = input.symbol(title = '29', defval = 'BIST:EDIP')
+c30 = input.symbol(title = '30', defval = 'BIST:EGEPO')
+c31 = input.symbol(title = '31', defval = 'BIST:EGGUB')
+c32 = input.symbol(title = '32', defval = 'BIST:EGPRO')
+c33 = input.symbol(title = '33', defval = 'BIST:EKSUN')
+c34 = input.symbol(title = '34', defval = 'BIST:ELITE')
+c35 = input.symbol(title = '35', defval = 'BIST:ENJSA')
+c36 = input.symbol(title = '36', defval = 'BIST:ERCB')
+c37 = input.symbol(title = '37', defval = 'BIST:EREGL')
+c38 = input.symbol(title = '38', defval = 'BIST:ESCOM')
+c39 = input.symbol(title = '39', defval = 'BIST:ESEN')
+
+// Group 2
+d1 = input.symbol(title = '1', defval = 'BIST:EUPWR', group = '2. Grup Hisseleri')
+d2 = input.symbol(title = '2', defval = 'BIST:EYGYO')
+d3 = input.symbol(title = '3', defval = 'BIST:FADE')
+d4 = input.symbol(title = '4', defval = 'BIST:FMIZP')
+d5 = input.symbol(title = '5', defval = 'BIST:FONET')
+d6 = input.symbol(title = '6', defval = 'BIST:FORMT')
+d7 = input.symbol(title = '7', defval = 'BIST:FZLGY')
+d8 = input.symbol(title = '8', defval = 'BIST:GEDZA')
+d9 = input.symbol(title = '9', defval = 'BIST:GENIL')
+d10 = input.symbol(title = '10', defval = 'BIST:GENTS')
+d11 = input.symbol(title = '11', defval = 'BIST:GEREL')
+d12 = input.symbol(title = '12', defval = 'BIST:GLRMK')
+d13 = input.symbol(title = '13', defval = 'BIST:GOKNR')
+d14 = input.symbol(title = '14', defval = 'BIST:GOLTS')
+d15 = input.symbol(title = '15', defval = 'BIST:GOODY')
+d16 = input.symbol(title = '16', defval = 'BIST:GRSEL')
+d17 = input.symbol(title = '17', defval = 'BIST:GRTHO')
+d18 = input.symbol(title = '18', defval = 'BIST:GUBRF')
+d19 = input.symbol(title = '19', defval = 'BIST:GUNDG')
+d20 = input.symbol(title = '20', defval = 'BIST:GWIND')
+d21 = input.symbol(title = '21', defval = 'BIST:HATSN')
+d22 = input.symbol(title = '22', defval = 'BIST:HKTM')
+d23 = input.symbol(title = '23', defval = 'BIST:HOROZ')
+d24 = input.symbol(title = '24', defval = 'BIST:HRKET')
+d25 = input.symbol(title = '25', defval = 'BIST:HTTBT')
+d26 = input.symbol(title = '26', defval = 'BIST:HUNER')
+d27 = input.symbol(title = '27', defval = 'BIST:IDGYO')
+d28 = input.symbol(title = '28', defval = 'BIST:IHEVA')
+d29 = input.symbol(title = '29', defval = 'BIST:IHGZT')
+d30 = input.symbol(title = '30', defval = 'BIST:IHLAS')
+d31 = input.symbol(title = '31', defval = 'BIST:IHLGM')
+d32 = input.symbol(title = '32', defval = 'BIST:IHYAY')
+d33 = input.symbol(title = '33', defval = 'BIST:IMASM')
+d34 = input.symbol(title = '34', defval = 'BIST:INGRM')
+d35 = input.symbol(title = '35', defval = 'BIST:INTEM')
+d36 = input.symbol(title = '36', defval = 'BIST:ISDMR')
+d37 = input.symbol(title = '37', defval = 'BIST:ISKPL')
+d38 = input.symbol(title = '38', defval = 'BIST:ISSEN')
+d39 = input.symbol(title = '39', defval = 'BIST:IZFAS')
+
+// Group 3
+g1 = input.symbol(title = '1', defval = 'BIST:IZINV', group = '3. Grup Hisseleri')
+g2 = input.symbol(title = '2', defval = 'BIST:JANTS')
+g3 = input.symbol(title = '3', defval = 'BIST:KAREL')
+g4 = input.symbol(title = '4', defval = 'BIST:KATMR')
+g5 = input.symbol(title = '5', defval = 'BIST:KAYSE')
+g6 = input.symbol(title = '6', defval = 'BIST:KCAER')
+g7 = input.symbol(title = '7', defval = 'BIST:KGYO')
+g8 = input.symbol(title = '8', defval = 'BIST:KIMMR')
+g9 = input.symbol(title = '9', defval = 'BIST:KLSYN')
+g10 = input.symbol(title = '10', defval = 'BIST:KNFRT')
+g11 = input.symbol(title = '11', defval = 'BIST:KONKA')
+g12 = input.symbol(title = '12', defval = 'BIST:KONYA')
+g13 = input.symbol(title = '13', defval = 'BIST:KOPOL')
+g14 = input.symbol(title = '14', defval = 'BIST:KOTON')
+g15 = input.symbol(title = '15', defval = 'BIST:KRDMA')
+g16 = input.symbol(title = '16', defval = 'BIST:KRDMB')
+g17 = input.symbol(title = '17', defval = 'BIST:KRDMD')
+g18 = input.symbol(title = '18', defval = 'BIST:KRGYO')
+g19 = input.symbol(title = '19', defval = 'BIST:KRONT')
+g20 = input.symbol(title = '20', defval = 'BIST:KRPLS')
+g21 = input.symbol(title = '21', defval = 'BIST:KRSTL')
+g22 = input.symbol(title = '22', defval = 'BIST:KRVGD')
+g23 = input.symbol(title = '23', defval = 'BIST:KTLEV')
+g24 = input.symbol(title = '24', defval = 'BIST:KUTPO')
+g25 = input.symbol(title = '25', defval = 'BIST:KUYAS')
+g26 = input.symbol(title = '26', defval = 'BIST:KZBGY')
+g27 = input.symbol(title = '27', defval = 'BIST:LILAK')
+g28 = input.symbol(title = '28', defval = 'BIST:LKMNH')
+g29 = input.symbol(title = '29', defval = 'BIST:LMKDC')
+g30 = input.symbol(title = '30', defval = 'BIST:LOGO')
+g31 = input.symbol(title = '31', defval = 'BIST:LRSHO')
+g32 = input.symbol(title = '32', defval = 'BIST:LUKSK')
+g33 = input.symbol(title = '33', defval = 'BIST:LYDHO')
+g34 = input.symbol(title = '34', defval = 'BIST:MAGEN')
+g35 = input.symbol(title = '35', defval = 'BIST:MAKIM')
+g36 = input.symbol(title = '36', defval = 'BIST:MANAS')
+g37 = input.symbol(title = '37', defval = 'BIST:MARBL')
+g38 = input.symbol(title = '38', defval = 'BIST:MARKA')
+g39 = input.symbol(title = '39', defval = 'BIST:MAVI')
+
+// Group 4
+j1 = input.symbol(title = '1', defval = 'BIST:MEDTR', group = '4. Grup Hisseleri')
+j2 = input.symbol(title = '2', defval = 'BIST:MEKAG')
+j3 = input.symbol(title = '3', defval = 'BIST:MERCN')
+j4 = input.symbol(title = '4', defval = 'BIST:MERKO')
+j5 = input.symbol(title = '5', defval = 'BIST:MIATK')
+j6 = input.symbol(title = '6', defval = 'BIST:MNDRS')
+j7 = input.symbol(title = '7', defval = 'BIST:MNDTR')
+j8 = input.symbol(title = '8', defval = 'BIST:MOBTL')
+j9 = input.symbol(title = '9', defval = 'BIST:MPARK')
+j10 = input.symbol(title = '10', defval = 'BIST:NATEN')
+j11 = input.symbol(title = '11', defval = 'BIST:NETAS')
+j12 = input.symbol(title = '12', defval = 'BIST:NTGAZ')
+j13 = input.symbol(title = '13', defval = 'BIST:NUHCM')
+j14 = input.symbol(title = '14', defval = 'BIST:OBAMS')
+j15 = input.symbol(title = '15', defval = 'BIST:OBASE')
+j16 = input.symbol(title = '16', defval = 'BIST:ONCSM')
+j17 = input.symbol(title = '17', defval = 'BIST:ORCAY')
+j18 = input.symbol(title = '18', defval = 'BIST:ORGE')
+j19 = input.symbol(title = '19', defval = 'BIST:OSTIM')
+j20 = input.symbol(title = '20', defval = 'BIST:OYAKC')
+j21 = input.symbol(title = '21', defval = 'BIST:OZATD')
+j22 = input.symbol(title = '22', defval = 'BIST:OZRDN')
+j23 = input.symbol(title = '23', defval = 'BIST:OZSUB')
+j24 = input.symbol(title = '24', defval = 'BIST:OZYSR')
+j25 = input.symbol(title = '25', defval = 'BIST:PARSN')
+j26 = input.symbol(title = '26', defval = 'BIST:PASEU')
+j27 = input.symbol(title = '27', defval = 'BIST:PEHOL')
+j28 = input.symbol(title = '28', defval = 'BIST:PEKGY')
+j29 = input.symbol(title = '29', defval = 'BIST:PENGD')
+j30 = input.symbol(title = '30', defval = 'BIST:PENTA')
+j31 = input.symbol(title = '31', defval = 'BIST:PETKM')
+j32 = input.symbol(title = '32', defval = 'BIST:PETUN')
+j33 = input.symbol(title = '33', defval = 'BIST:PKART')
+j34 = input.symbol(title = '34', defval = 'BIST:PLTUR')
+j35 = input.symbol(title = '35', defval = 'BIST:PNSUT')
+j36 = input.symbol(title = '36', defval = 'BIST:POLHO')
+j37 = input.symbol(title = '37', defval = 'BIST:PRKAB')
+j38 = input.symbol(title = '38', defval = 'BIST:QUAGR')
+j39 = input.symbol(title = '39', defval = 'BIST:RALYH')
+
+// Group 5
+k1 = input.symbol(title = '1', defval = 'BIST:RODRG', group = '5. Grup Hisseleri')
+k2 = input.symbol(title = '2', defval = 'BIST:RUBNS')
+k3 = input.symbol(title = '3', defval = 'BIST:SAFKR')
+k4 = input.symbol(title = '4', defval = 'BIST:SAMAT')
+k5 = input.symbol(title = '5', defval = 'BIST:SANKO')
+k6 = input.symbol(title = '6', defval = 'BIST:SAYAS')
+k7 = input.symbol(title = '7', defval = 'BIST:SEGMN')
+k8 = input.symbol(title = '8', defval = 'BIST:SEKUR')
+k9 = input.symbol(title = '9', defval = 'BIST:SELEC')
+k10 = input.symbol(title = '10', defval = 'BIST:SELVA')
+k11 = input.symbol(title = '11', defval = 'BIST:SILVR')
+k12 = input.symbol(title = '12', defval = 'BIST:SMART')
+k13 = input.symbol(title = '13', defval = 'BIST:SMRTG')
+k14 = input.symbol(title = '14', defval = 'BIST:SNGYO')
+k15 = input.symbol(title = '15', defval = 'BIST:SNICA')
+k16 = input.symbol(title = '16', defval = 'BIST:SOKE')
+k17 = input.symbol(title = '17', defval = 'BIST:SRVGY')
+k18 = input.symbol(title = '18', defval = 'BIST:SUNTK')
+k19 = input.symbol(title = '19', defval = 'BIST:SURGY')
+k20 = input.symbol(title = '20', defval = 'BIST:SUWEN')
+k21 = input.symbol(title = '21', defval = 'BIST:TCKRC')
+k22 = input.symbol(title = '22', defval = 'BIST:TDGYO')
+k23 = input.symbol(title = '23', defval = 'BIST:TEZOL')
+k24 = input.symbol(title = '24', defval = 'BIST:TKFEN')
+k25 = input.symbol(title = '25', defval = 'BIST:TNZTP')
+k26 = input.symbol(title = '26', defval = 'BIST:TUCLK')
+k27 = input.symbol(title = '27', defval = 'BIST:TUKAS')
+k28 = input.symbol(title = '28', defval = 'BIST:TUPRS')
+k29 = input.symbol(title = '29', defval = 'BIST:TUREX')
+k30 = input.symbol(title = '30', defval = 'BIST:ULUSE')
+k31 = input.symbol(title = '31', defval = 'BIST:USAK')
+k32 = input.symbol(title = '32', defval = 'BIST:VAKKO')
+k33 = input.symbol(title = '33', defval = 'BIST:VANGD')
+k34 = input.symbol(title = '34', defval = 'BIST:VBTYZ')
+k35 = input.symbol(title = '35', defval = 'BIST:VESBE')
+k36 = input.symbol(title = '36', defval = 'BIST:VESTL')
+k37 = input.symbol(title = '37', defval = 'BIST:VSNMD')
+k38 = input.symbol(title = '38', defval = 'BIST:YATAS')
+k39 = input.symbol(title = '39', defval = 'BIST:YEOTK')
+k40 = input.symbol(title = '40', defval = 'BIST:YUNSA')
+k41 = input.symbol(title = '41', defval = 'BIST:ZEDUR')
+
+// Assign symbols based on selected group
+a01 = grupSec == '1' ? c1 : grupSec == '2' ? d1 : grupSec == '3' ? g1 : grupSec == '4' ? j1 : grupSec == '5' ? k1 : grupSec == 'ÖZEL LİSTE' ? s01 : na
+a02 = grupSec == '1' ? c2 : grupSec == '2' ? d2 : grupSec == '3' ? g2 : grupSec == '4' ? j2 : grupSec == '5' ? k2 : grupSec == 'ÖZEL LİSTE' ? s02 : na
+a03 = grupSec == '1' ? c3 : grupSec == '2' ? d3 : grupSec == '3' ? g3 : grupSec == '4' ? j3 : grupSec == '5' ? k3 : grupSec == 'ÖZEL LİSTE' ? s03 : na
+a04 = grupSec == '1' ? c4 : grupSec == '2' ? d4 : grupSec == '3' ? g4 : grupSec == '4' ? j4 : grupSec == '5' ? k4 : grupSec == 'ÖZEL LİSTE' ? s04 : na
+a05 = grupSec == '1' ? c5 : grupSec == '2' ? d5 : grupSec == '3' ? g5 : grupSec == '4' ? j5 : grupSec == '5' ? k5 : grupSec == 'ÖZEL LİSTE' ? s05 : na
+a06 = grupSec == '1' ? c6 : grupSec == '2' ? d6 : grupSec == '3' ? g6 : grupSec == '4' ? j6 : grupSec == '5' ? k6 : grupSec == 'ÖZEL LİSTE' ? s06 : na
+a07 = grupSec == '1' ? c7 : grupSec == '2' ? d7 : grupSec == '3' ? g7 : grupSec == '4' ? j7 : grupSec == '5' ? k7 : grupSec == 'ÖZEL LİSTE' ? s07 : na
+a08 = grupSec == '1' ? c8 : grupSec == '2' ? d8 : grupSec == '3' ? g8 : grupSec == '4' ? j8 : grupSec == '5' ? k8 : grupSec == 'ÖZEL LİSTE' ? s08 : na
+a09 = grupSec == '1' ? c9 : grupSec == '2' ? d9 : grupSec == '3' ? g9 : grupSec == '4' ? j9 : grupSec == '5' ? k9 : grupSec == 'ÖZEL LİSTE' ? s09 : na
+a10 = grupSec == '1' ? c10 : grupSec == '2' ? d10 : grupSec == '3' ? g10 : grupSec == '4' ? j10 : grupSec == '5' ? k10 : grupSec == 'ÖZEL LİSTE' ? s10 : na
+a11 = grupSec == '1' ? c11 : grupSec == '2' ? d11 : grupSec == '3' ? g11 : grupSec == '4' ? j11 : grupSec == '5' ? k11 : grupSec == 'ÖZEL LİSTE' ? s11 : na
+a12 = grupSec == '1' ? c12 : grupSec == '2' ? d12 : grupSec == '3' ? g12 : grupSec == '4' ? j12 : grupSec == '5' ? k12 : grupSec == 'ÖZEL LİSTE' ? s12 : na
+a13 = grupSec == '1' ? c13 : grupSec == '2' ? d13 : grupSec == '3' ? g13 : grupSec == '4' ? j13 : grupSec == '5' ? k13 : grupSec == 'ÖZEL LİSTE' ? s13 : na
+a14 = grupSec == '1' ? c14 : grupSec == '2' ? d14 : grupSec == '3' ? g14 : grupSec == '4' ? j14 : grupSec == '5' ? k14 : grupSec == 'ÖZEL LİSTE' ? s14 : na
+a15 = grupSec == '1' ? c15 : grupSec == '2' ? d15 : grupSec == '3' ? g15 : grupSec == '4' ? j15 : grupSec == '5' ? k15 : grupSec == 'ÖZEL LİSTE' ? s15 : na
+a16 = grupSec == '1' ? c16 : grupSec == '2' ? d16 : grupSec == '3' ? g16 : grupSec == '4' ? j16 : grupSec == '5' ? k16 : grupSec == 'ÖZEL LİSTE' ? s16 : na
+a17 = grupSec == '1' ? c17 : grupSec == '2' ? d17 : grupSec == '3' ? g17 : grupSec == '4' ? j17 : grupSec == '5' ? k17 : grupSec == 'ÖZEL LİSTE' ? s17 : na
+a18 = grupSec == '1' ? c18 : grupSec == '2' ? d18 : grupSec == '3' ? g18 : grupSec == '4' ? j18 : grupSec == '5' ? k18 : grupSec == 'ÖZEL LİSTE' ? s18 : na
+a19 = grupSec == '1' ? c19 : grupSec == '2' ? d19 : grupSec == '3' ? g19 : grupSec == '4' ? j19 : grupSec == '5' ? k19 : grupSec == 'ÖZEL LİSTE' ? s19 : na
+a20 = grupSec == '1' ? c20 : grupSec == '2' ? d20 : grupSec == '3' ? g20 : grupSec == '4' ? j20 : grupSec == '5' ? k20 : grupSec == 'ÖZEL LİSTE' ? s20 : na
+a21 = grupSec == '1' ? c21 : grupSec == '2' ? d21 : grupSec == '3' ? g21 : grupSec == '4' ? j21 : grupSec == '5' ? k21 : grupSec == 'ÖZEL LİSTE' ? s21 : na
+a22 = grupSec == '1' ? c22 : grupSec == '2' ? d22 : grupSec == '3' ? g22 : grupSec == '4' ? j22 : grupSec == '5' ? k22 : grupSec == 'ÖZEL LİSTE' ? s22 : na
+a23 = grupSec == '1' ? c23 : grupSec == '2' ? d23 : grupSec == '3' ? g23 : grupSec == '4' ? j23 : grupSec == '5' ? k23 : grupSec == 'ÖZEL LİSTE' ? s23 : na
+a24 = grupSec == '1' ? c24 : grupSec == '2' ? d24 : grupSec == '3' ? g24 : grupSec == '4' ? j24 : grupSec == '5' ? k24 : grupSec == 'ÖZEL LİSTE' ? s24 : na
+a25 = grupSec == '1' ? c25 : grupSec == '2' ? d25 : grupSec == '3' ? g25 : grupSec == '4' ? j25 : grupSec == '5' ? k25 : grupSec == 'ÖZEL LİSTE' ? s25 : na
+a26 = grupSec == '1' ? c26 : grupSec == '2' ? d26 : grupSec == '3' ? g26 : grupSec == '4' ? j26 : grupSec == '5' ? k26 : grupSec == 'ÖZEL LİSTE' ? s26 : na
+a27 = grupSec == '1' ? c27 : grupSec == '2' ? d27 : grupSec == '3' ? g27 : grupSec == '4' ? j27 : grupSec == '5' ? k27 : grupSec == 'ÖZEL LİSTE' ? s27 : na
+a28 = grupSec == '1' ? c28 : grupSec == '2' ? d28 : grupSec == '3' ? g28 : grupSec == '4' ? j28 : grupSec == '5' ? k28 : grupSec == 'ÖZEL LİSTE' ? s28 : na
+a29 = grupSec == '1' ? c29 : grupSec == '2' ? d29 : grupSec == '3' ? g29 : grupSec == '4' ? j29 : grupSec == '5' ? k29 : grupSec == 'ÖZEL LİSTE' ? s29 : na
+a30 = grupSec == '1' ? c30 : grupSec == '2' ? d30 : grupSec == '3' ? g30 : grupSec == '4' ? j30 : grupSec == '5' ? k30 : grupSec == 'ÖZEL LİSTE' ? s30 : na
+a31 = grupSec == '1' ? c31 : grupSec == '2' ? d31 : grupSec == '3' ? g31 : grupSec == '4' ? j31 : grupSec == '5' ? k31 : grupSec == 'ÖZEL LİSTE' ? s31 : na
+a32 = grupSec == '1' ? c32 : grupSec == '2' ? d32 : grupSec == '3' ? g32 : grupSec == '4' ? j32 : grupSec == '5' ? k32 : grupSec == 'ÖZEL LİSTE' ? s32 : na
+a33 = grupSec == '1' ? c33 : grupSec == '2' ? d33 : grupSec == '3' ? g33 : grupSec == '4' ? j33 : grupSec == '5' ? k33 : grupSec == 'ÖZEL LİSTE' ? s33 : na
+a34 = grupSec == '1' ? c34 : grupSec == '2' ? d34 : grupSec == '3' ? g34 : grupSec == '4' ? j34 : grupSec == '5' ? k34 : grupSec == 'ÖZEL LİSTE' ? s34 : na
+a35 = grupSec == '1' ? c35 : grupSec == '2' ? d35 : grupSec == '3' ? g35 : grupSec == '4' ? j35 : grupSec == '5' ? k35 : grupSec == 'ÖZEL LİSTE' ? s35 : na
+a36 = grupSec == '1' ? c36 : grupSec == '2' ? d36 : grupSec == '3' ? g36 : grupSec == '4' ? j36 : grupSec == '5' ? k36 : grupSec == 'ÖZEL LİSTE' ? s36 : na
+a37 = grupSec == '1' ? c37 : grupSec == '2' ? d37 : grupSec == '3' ? g37 : grupSec == '4' ? j37 : grupSec == '5' ? k37 : grupSec == 'ÖZEL LİSTE' ? s37 : na
+a38 = grupSec == '1' ? c38 : grupSec == '2' ? d38 : grupSec == '3' ? g38 : grupSec == '4' ? j38 : grupSec == '5' ? k38 : grupSec == 'ÖZEL LİSTE' ? s38 : na
+a39 = grupSec == '1' ? c39 : grupSec == '2' ? d39 : grupSec == '3' ? g39 : grupSec == '4' ? j39 : grupSec == '5' ? k39 : grupSec == 'ÖZEL LİSTE' ? s39 : na
+a40 = grupSec == '1' ? c39 : grupSec == '2' ? d39 : grupSec == '3' ? g39 : grupSec == '4' ? j39 : grupSec == '5' ? k40 : grupSec == 'ÖZEL LİSTE' ? s40 : na
+a41 = grupSec == '5' ? k41 : na // Group 5 has 41 symbols
+
+// Request security data for each symbol
+[c01_1, c01_2] = request.security(a01, per, [crossBelowOS2, sellSignal])
+[c02_1, c02_2] = request.security(a02, per, [crossBelowOS2, sellSignal])
+[c03_1, c03_2] = request.security(a03, per, [crossBelowOS2, sellSignal])
+[c04_1, c04_2] = request.security(a04, per, [crossBelowOS2, sellSignal])
+[c05_1, c05_2] = request.security(a05, per, [crossBelowOS2, sellSignal])
+[c06_1, c06_2] = request.security(a06, per, [crossBelowOS2, sellSignal])
+[c07_1, c07_2] = request.security(a07, per, [crossBelowOS2, sellSignal])
+[c08_1, c08_2] = request.security(a08, per, [crossBelowOS2, sellSignal])
+[c09_1, c09_2] = request.security(a09, per, [crossBelowOS2, sellSignal])
+[c10_1, c10_2] = request.security(a10, per, [crossBelowOS2, sellSignal])
+[c11_1, c11_2] = request.security(a11, per, [crossBelowOS2, sellSignal])
+[c12_1, c12_2] = request.security(a12, per, [crossBelowOS2, sellSignal])
+[c13_1, c13_2] = request.security(a13, per, [crossBelowOS2, sellSignal])
+[c14_1, c14_2] = request.security(a14, per, [crossBelowOS2, sellSignal])
+[c15_1, c15_2] = request.security(a15, per, [crossBelowOS2, sellSignal])
+[c16_1, c16_2] = request.security(a16, per, [crossBelowOS2, sellSignal])
+[c17_1, c17_2] = request.security(a17, per, [crossBelowOS2, sellSignal])
+[c18_1, c18_2] = request.security(a18, per, [crossBelowOS2, sellSignal])
+[c19_1, c19_2] = request.security(a19, per, [crossBelowOS2, sellSignal])
+[c20_1, c20_2] = request.security(a20, per, [crossBelowOS2, sellSignal])
+[c21_1, c21_2] = request.security(a21, per, [crossBelowOS2, sellSignal])
+[c22_1, c22_2] = request.security(a22, per, [crossBelowOS2, sellSignal])
+[c23_1, c23_2] = request.security(a23, per, [crossBelowOS2, sellSignal])
+[c24_1, c24_2] = request.security(a24, per, [crossBelowOS2, sellSignal])
+[c25_1, c25_2] = request.security(a25, per, [crossBelowOS2, sellSignal])
+[c26_1, c26_2] = request.security(a26, per, [crossBelowOS2, sellSignal])
+[c27_1, c27_2] = request.security(a27, per, [crossBelowOS2, sellSignal])
+[c28_1, c28_2] = request.security(a28, per, [crossBelowOS2, sellSignal])
+[c29_1, c29_2] = request.security(a29, per, [crossBelowOS2, sellSignal])
+[c30_1, c30_2] = request.security(a30, per, [crossBelowOS2, sellSignal])
+[c31_1, c31_2] = request.security(a31, per, [crossBelowOS2, sellSignal])
+[c32_1, c32_2] = request.security(a32, per, [crossBelowOS2, sellSignal])
+[c33_1, c33_2] = request.security(a33, per, [crossBelowOS2, sellSignal])
+[c34_1, c34_2] = request.security(a34, per, [crossBelowOS2, sellSignal])
+[c35_1, c35_2] = request.security(a35, per, [crossBelowOS2, sellSignal])
+[c36_1, c36_2] = request.security(a36, per, [crossBelowOS2, sellSignal])
+[c37_1, c37_2] = request.security(a37, per, [crossBelowOS2, sellSignal])
+[c38_1, c38_2] = request.security(a38, per, [crossBelowOS2, sellSignal])
+[c39_1, c39_2] = request.security(a39, per, [crossBelowOS2, sellSignal])
+[c40_1, c40_2] = request.security(a40, per, [crossBelowOS2, sellSignal])
+// [c41_1, c41_2] = request.security(a41, per, [crossBelowOS2, sellSignal])
+
+// Create arrays to store buy and sell signals
+var array<string> buy_signals = array.new_string(0)
+var array<string> sell_signals = array.new_string(0)
+
+// Detect new bar
+is_new_bar = barstate.isnew
+
+// Clear arrays at the start of each new bar
+if is_new_bar
+    array.clear(buy_signals)
+    array.clear(sell_signals)
+
+// Populate buy and sell signals with unique symbols
+if c01_1 and not array.includes(buy_signals, a01)
+    array.push(buy_signals, a01)
+if c01_2 and not array.includes(sell_signals, a01) and not array.includes(buy_signals, a01)
+    array.push(sell_signals, a01)
+if c02_1 and not array.includes(buy_signals, a02)
+    array.push(buy_signals, a02)
+if c02_2 and not array.includes(sell_signals, a02) and not array.includes(buy_signals, a02)
+    array.push(sell_signals, a02)
+if c03_1 and not array.includes(buy_signals, a03)
+    array.push(buy_signals, a03)
+if c03_2 and not array.includes(sell_signals, a03) and not array.includes(buy_signals, a03)
+    array.push(sell_signals, a03)
+if c04_1 and not array.includes(buy_signals, a04)
+    array.push(buy_signals, a04)
+if c04_2 and not array.includes(sell_signals, a04) and not array.includes(buy_signals, a04)
+    array.push(sell_signals, a04)
+if c05_1 and not array.includes(buy_signals, a05)
+    array.push(buy_signals, a05)
+if c05_2 and not array.includes(sell_signals, a05) and not array.includes(buy_signals, a05)
+    array.push(sell_signals, a05)
+if c06_1 and not array.includes(buy_signals, a06)
+    array.push(buy_signals, a06)
+if c06_2 and not array.includes(sell_signals, a06) and not array.includes(buy_signals, a06)
+    array.push(sell_signals, a06)
+if c07_1 and not array.includes(buy_signals, a07)
+    array.push(buy_signals, a07)
+if c07_2 and not array.includes(sell_signals, a07) and not array.includes(buy_signals, a07)
+    array.push(sell_signals, a07)
+if c08_1 and not array.includes(buy_signals, a08)
+    array.push(buy_signals, a08)
+if c08_2 and not array.includes(sell_signals, a08) and not array.includes(buy_signals, a08)
+    array.push(sell_signals, a08)
+if c09_1 and not array.includes(buy_signals, a09)
+    array.push(buy_signals, a09)
+if c09_2 and not array.includes(sell_signals, a09) and not array.includes(buy_signals, a09)
+    array.push(sell_signals, a09)
+if c10_1 and not array.includes(buy_signals, a10)
+    array.push(buy_signals, a10)
+if c10_2 and not array.includes(sell_signals, a10) and not array.includes(buy_signals, a10)
+    array.push(sell_signals, a10)
+if c11_1 and not array.includes(buy_signals, a11)
+    array.push(buy_signals, a11)
+if c11_2 and not array.includes(sell_signals, a11) and not array.includes(buy_signals, a11)
+    array.push(sell_signals, a11)
+if c12_1 and not array.includes(buy_signals, a12)
+    array.push(buy_signals, a12)
+if c12_2 and not array.includes(sell_signals, a12) and not array.includes(buy_signals, a12)
+    array.push(sell_signals, a12)
+if c13_1 and not array.includes(buy_signals, a13)
+    array.push(buy_signals, a13)
+if c13_2 and not array.includes(sell_signals, a13) and not array.includes(buy_signals, a13)
+    array.push(sell_signals, a13)
+if c14_1 and not array.includes(buy_signals, a14)
+    array.push(buy_signals, a14)
+if c14_2 and not array.includes(sell_signals, a14) and not array.includes(buy_signals, a14)
+    array.push(sell_signals, a14)
+if c15_1 and not array.includes(buy_signals, a15)
+    array.push(buy_signals, a15)
+if c15_2 and not array.includes(sell_signals, a15) and not array.includes(buy_signals, a15)
+    array.push(sell_signals, a15)
+if c16_1 and not array.includes(buy_signals, a16)
+    array.push(buy_signals, a16)
+if c16_2 and not array.includes(sell_signals, a16) and not array.includes(buy_signals, a16)
+    array.push(sell_signals, a16)
+if c17_1 and not array.includes(buy_signals, a17)
+    array.push(buy_signals, a17)
+if c17_2 and not array.includes(sell_signals, a17) and not array.includes(buy_signals, a17)
+    array.push(sell_signals, a17)
+if c18_1 and not array.includes(buy_signals, a18)
+    array.push(buy_signals, a18)
+if c18_2 and not array.includes(sell_signals, a18) and not array.includes(buy_signals, a18)
+    array.push(sell_signals, a18)
+if c19_1 and not array.includes(buy_signals, a19)
+    array.push(buy_signals, a19)
+if c19_2 and not array.includes(sell_signals, a19) and not array.includes(buy_signals, a19)
+    array.push(sell_signals, a19)
+if c20_1 and not array.includes(buy_signals, a20)
+    array.push(buy_signals, a20)
+if c20_2 and not array.includes(sell_signals, a20) and not array.includes(buy_signals, a20)
+    array.push(sell_signals, a20)
+if c21_1 and not array.includes(buy_signals, a21)
+    array.push(buy_signals, a21)
+if c21_2 and not array.includes(sell_signals, a21) and not array.includes(buy_signals, a21)
+    array.push(sell_signals, a21)
+if c22_1 and not array.includes(buy_signals, a22)
+    array.push(buy_signals, a22)
+if c22_2 and not array.includes(sell_signals, a22) and not array.includes(buy_signals, a22)
+    array.push(sell_signals, a22)
+if c23_1 and not array.includes(buy_signals, a23)
+    array.push(buy_signals, a23)
+if c23_2 and not array.includes(sell_signals, a23) and not array.includes(buy_signals, a23)
+    array.push(sell_signals, a23)
+if c24_1 and not array.includes(buy_signals, a24)
+    array.push(buy_signals, a24)
+if c24_2 and not array.includes(sell_signals, a24) and not array.includes(buy_signals, a24)
+    array.push(sell_signals, a24)
+if c25_1 and not array.includes(buy_signals, a25)
+    array.push(buy_signals, a25)
+if c25_2 and not array.includes(sell_signals, a25) and not array.includes(buy_signals, a25)
+    array.push(sell_signals, a25)
+if c26_1 and not array.includes(buy_signals, a26)
+    array.push(buy_signals, a26)
+if c26_2 and not array.includes(sell_signals, a26) and not array.includes(buy_signals, a26)
+    array.push(sell_signals, a26)
+if c27_1 and not array.includes(buy_signals, a27)
+    array.push(buy_signals, a27)
+if c27_2 and not array.includes(sell_signals, a27) and not array.includes(buy_signals, a27)
+    array.push(sell_signals, a27)
+if c28_1 and not array.includes(buy_signals, a28)
+    array.push(buy_signals, a28)
+if c28_2 and not array.includes(sell_signals, a28) and not array.includes(buy_signals, a28)
+    array.push(sell_signals, a28)
+if c29_1 and not array.includes(buy_signals, a29)
+    array.push(buy_signals, a29)
+if c29_2 and not array.includes(sell_signals, a29) and not array.includes(buy_signals, a29)
+    array.push(sell_signals, a29)
+if c30_1 and not array.includes(buy_signals, a30)
+    array.push(buy_signals, a30)
+if c30_2 and not array.includes(sell_signals, a30) and not array.includes(buy_signals, a30)
+    array.push(sell_signals, a30)
+if c31_1 and not array.includes(buy_signals, a31)
+    array.push(buy_signals, a31)
+if c31_2 and not array.includes(sell_signals, a31) and not array.includes(buy_signals, a31)
+    array.push(sell_signals, a31)
+if c32_1 and not array.includes(buy_signals, a32)
+    array.push(buy_signals, a32)
+if c32_2 and not array.includes(sell_signals, a32) and not array.includes(buy_signals, a32)
+    array.push(sell_signals, a32)
+if c33_1 and not array.includes(buy_signals, a33)
+    array.push(buy_signals, a33)
+if c33_2 and not array.includes(sell_signals, a33) and not array.includes(buy_signals, a33)
+    array.push(sell_signals, a33)
+if c34_1 and not array.includes(buy_signals, a34)
+    array.push(buy_signals, a34)
+if c34_2 and not array.includes(sell_signals, a34) and not array.includes(buy_signals, a34)
+    array.push(sell_signals, a34)
+if c35_1 and not array.includes(buy_signals, a35)
+    array.push(buy_signals, a35)
+if c35_2 and not array.includes(sell_signals, a35) and not array.includes(buy_signals, a35)
+    array.push(sell_signals, a35)
+if c36_1 and not array.includes(buy_signals, a36)
+    array.push(buy_signals, a36)
+if c36_2 and not array.includes(sell_signals, a36) and not array.includes(buy_signals, a36)
+    array.push(sell_signals, a36)
+if c37_1 and not array.includes(buy_signals, a37)
+    array.push(buy_signals, a37)
+if c37_2 and not array.includes(sell_signals, a37) and not array.includes(buy_signals, a37)
+    array.push(sell_signals, a37)
+if c38_1 and not array.includes(buy_signals, a38)
+    array.push(buy_signals, a38)
+if c38_2 and not array.includes(sell_signals, a38) and not array.includes(buy_signals, a38)
+    array.push(sell_signals, a38)
+if c39_1 and not array.includes(buy_signals, a39)
+    array.push(buy_signals, a39)
+if c39_2 and not array.includes(sell_signals, a39) and not array.includes(buy_signals, a39)
+    array.push(sell_signals, a39)
+if c40_1 and not array.includes(buy_signals, a40)
+    array.push(buy_signals, a40)
+if c40_2 and not array.includes(sell_signals, a40) and not array.includes(buy_signals, a40)
+    array.push(sell_signals, a40)
+// if c41_1 and not array.includes(buy_signals, a41)
+//     array.push(buy_signals, a41)
+// if c41_2 and not array.includes(sell_signals, a41) and not array.includes(buy_signals, a41)
+//     array.push(sell_signals, a41)
+
+// Create a table for the screener
+var table screener_table = na
+if barstate.islast
+    screener_table := table.new(position.top_right, 2, 10, border_width = 1, border_color = color.gray)
+
+    // Headers
+    table.cell(screener_table, 0, 0, 'AL', bgcolor = color.green, text_color = color.white)
+    table.cell(screener_table, 1, 0, 'SAT', bgcolor = color.red, text_color = color.white)
+
+    // Populate Buy signals
+    if array.size(buy_signals) > 0
+        for i = 0 to math.min(9, array.size(buy_signals) - 1) by 1
+            table.cell(screener_table, 0, i + 1, array.get(buy_signals, i), bgcolor = color.new(color.green, 90), text_color = color.white)
+
+    // Populate Sell signals
+    if array.size(sell_signals) > 0
+        for i = 0 to math.min(9, array.size(sell_signals) - 1) by 1
+            table.cell(screener_table, 1, i + 1, array.get(sell_signals, i), bgcolor = color.new(color.red, 90), text_color = color.white)
